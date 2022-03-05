@@ -1,0 +1,50 @@
+
+   
+# This is a basic workflow to help you get started with Actions
+
+name: Build
+
+# Controls when the action will run. 
+on: [ push, pull_request, workflow_dispatch ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-versions: [3.9]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build Container
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: pkr
+          tags: latest
+          dockerfiles: |
+            Dockerfile
+
+      # Podman Login action (https://github.com/redhat-actions/podman-login) also be used to log in,
+      # in which case 'username' and 'password' can be omitted.
+      - name: Push To quay.io
+        id: push-to-quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: quay.io/navops
+          username: navops+navops_github
+          password: ${{ secrets.QUAY_REPO_TOKEN }}
